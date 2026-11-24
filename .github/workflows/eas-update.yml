@@ -1,0 +1,46 @@
+name: EAS Update
+
+# Đẩy bản cập nhật OTA (JS / dữ liệu / ảnh) cho app đã build.
+# Tự chạy khi push lên main, hoặc chạy thủ công và chọn channel.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Channel (khớp profile build)
+        type: choice
+        options: [preview, production]
+        default: preview
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eas-update-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint src
+      - name: Publish update
+        env:
+          CHANNEL: ${{ github.event.inputs.channel || 'preview' }}
+          COMMIT_MSG: ${{ github.event.head_commit.message || 'Manual update' }}
+        run: eas update --channel "$CHANNEL" --message "$COMMIT_MSG" --non-interactive
