@@ -31,6 +31,15 @@ jobs:
       - name: Generate native iOS project (prebuild)
         run: npx expo prebuild --platform ios --no-install
 
+      - name: Configure Expo.plist for EAS Update
+        run: |
+          PLIST=$(find ios -name "Expo.plist" | head -n 1)
+          echo "Found Expo.plist at: $PLIST"
+          /usr/libexec/PlistBuddy -c "Add :EXUpdatesRequestHeaders dict" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :EXUpdatesRequestHeaders:expo-channel-name string preview" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Set :EXUpdatesRequestHeaders:expo-channel-name preview" "$PLIST" || true
+          cat "$PLIST"
+
       - name: Install CocoaPods
         working-directory: ios
         run: pod install
