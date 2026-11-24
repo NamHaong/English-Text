@@ -15,6 +15,8 @@
         "NSSupportsLiveActivitiesFrequentUpdates": true,
         "UIBackgroundModes": [
           "fetch",
+          "remote-notification",
+          "fetch",
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false
@@ -44,11 +46,12 @@
       "favicon": "./assets/favicon.png"
     },
     "owner": "hoangnam68s-team",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
-      "url": "https://u.expo.dev/0877942c-c00a-48b7-b267-3be6d77c65d8"
+      "url": "https://u.expo.dev/0877942c-c00a-48b7-b267-3be6d77c65d8",
+      "requestHeaders": {
+        "expo-channel-name": "preview"
+      }
     },
     "extra": {
       "eas": {

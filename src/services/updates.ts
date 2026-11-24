@@ -58,12 +58,23 @@ export const checkUpdatesManual = async (): Promise<{
 }> => {
   if (__DEV__) {
     Alert.alert(
-      'Môi trường Phát Triển (Dev)',
-      'Hệ thống cập nhật OTA chỉ chạy trên bản build thực tế (Preview / Production), không chạy trong Expo Go.'
+      'Chế độ Phát triển (__DEV__)',
+      'Hệ thống cập nhật OTA chỉ hoạt động trên bản cài đặt thật (IPA/APK), không chạy trong chế độ Debug / Expo Go.'
     );
     return {
       available: false,
       message: 'Đang ở môi trường Dev',
+    };
+  }
+
+  if (!Updates.isEnabled) {
+    Alert.alert(
+      'Chưa Kích Hoạt OTA Trên Bản Cài Này',
+      `Bản cài đặt hiện tại trên máy chưa được liên kết với kênh cập nhật Expo (Updates.isEnabled = false).\n\n• Kênh máy: ${Updates.channel || 'Chưa thiết lập'}\n• Runtime: ${Updates.runtimeVersion || 'Chưa thiết lập'}\n\n👉 Để sử dụng OTA, hãy cài bản build IPA mới (đã được cấu hình sẵn kênh 'preview'). Sau khi cài một lần, từ các lần sau mã nguồn sẽ tự động cập nhật trực tuyến!`
+    );
+    return {
+      available: false,
+      message: 'expo-updates is disabled in this binary',
     };
   }
 
@@ -92,14 +103,14 @@ export const checkUpdatesManual = async (): Promise<{
     } else {
       Alert.alert(
         'Đã Cập Nhật Mới Nhất ✅',
-        'Ứng dụng đang chạy phiên bản mới nhất, không có bản cập nhật nào trên máy chủ.'
+        `Ứng dụng đang chạy phiên bản mới nhất trên kênh '${Updates.channel || 'preview'}'.\n(Runtime: ${Updates.runtimeVersion || '1.0.0'})`
       );
       return { available: false, message: 'Đã là bản mới nhất' };
     }
   } catch (error: any) {
     Alert.alert(
-      'Không thể kiểm tra cập nhật',
-      'Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau.'
+      'Chi Tiết Kiểm Tra Cập Nhật',
+      `Lỗi từ hệ thống Expo:\n${error?.message || error}\n\n• Kênh máy: ${Updates.channel || 'Chưa thiết lập'}\n• Runtime: ${Updates.runtimeVersion || 'Chưa thiết lập'}`
     );
     return {
       available: false,
