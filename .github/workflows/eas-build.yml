@@ -1,43 +1,70 @@
-name: EAS Build
+name: iOS Build (unsigned IPA)
 
-# Kích hoạt EAS Build trực tiếp từ GitHub Actions
-# Chạy thủ công: Actions > EAS Build > Run workflow (chọn platform & profile)
+# Build file .ipa KHÔNG ký trên macOS runner của GitHub (không cần Apple Developer, không cần EXPO_TOKEN).
+# Chạy tay: Actions > iOS Build (unsigned IPA) > Run workflow. Tải .ipa ở mục Artifacts, tự ký/cài bằng công cụ riêng.
 on:
   workflow_dispatch:
-    inputs:
-      platform:
-        description: 'Nền tảng build (ios, android, all)'
-        type: choice
-        options: [ios, android, all]
-        default: ios
-      profile:
-        description: 'Profile build (từ eas.json)'
-        type: choice
-        options: [preview, preview-simulator, production, development]
-        default: preview
 
 permissions:
   contents: read
 
 concurrency:
-  group: eas-build-${{ github.ref }}
-  cancel-in-progress: false
+  group: ios-unsigned-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx eslint src
-      - name: Trigger EAS Build
-        run: eas build --platform ${{ github.event.inputs.platform }} --profile ${{ github.event.inputs.profile }} --non-interactive
+
+      - name: Generate native iOS project (prebuild)
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+
+      - name: Build (no code signing)
+        working-directory: ios
+        run: |
+          WORKSPACE=$(ls -d *.xcworkspace | head -n 1)
+          SCHEME="${WORKSPACE%.xcworkspace}"
+          echo "Workspace: $WORKSPACE | Scheme: $SCHEME"
+          set -o pipefail
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build | tail -n 40
+
+      - name: Package unsigned IPA
+        working-directory: ios
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          echo "App bundle: $APP"
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry ../eng-text-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eng-text-unsigned-ipa
+          path: eng-text-unsigned.ipa
+          retention-days: 14

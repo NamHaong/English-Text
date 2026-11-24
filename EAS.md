@@ -38,11 +38,10 @@ Trước khi push, kiểm tra: `git status` và `git diff --cached --stat`.
 | Workflow | Khi nào chạy | Làm gì |
 |---|---|---|
 | `ci.yml` | push `main`, mọi pull request | `tsc`, `eslint`, `expo-doctor` |
-| `eas-build.yml` | chạy tay (workflow_dispatch) | build ứng dụng trên đám mây EAS (chọn iOS, Android, profile) trực tiếp từ GitHub |
-| `ios-unsigned.yml` | chạy tay | build file `.ipa` **chưa ký** trên macOS của GitHub, tải ở mục Artifacts (giữ 14 ngày) |
+| `eas-build.yml` | chạy tay | build file `.ipa` **chưa ký** trên macOS của GitHub (không cần Apple Developer hay EXPO_TOKEN), tải ở mục Artifacts (giữ 14 ngày) |
 | `eas-update.yml` | push `main`, hoặc chạy tay | `eas update` lên channel `preview`/`production` |
 
 **Thiết lập một lần:** tạo token tại expo.dev > Account settings > Access tokens, rồi trên GitHub vào
 Settings > Secrets and variables > Actions > New repository secret, tên **`EXPO_TOKEN`**. Không dán token vào code hay file trong repo.
 Push `main` mặc định đẩy OTA lên channel `preview`; muốn phát hành thật, chạy tay `EAS Update` và chọn `production`.
-`ios-unsigned.yml` chỉ tạo IPA chưa ký; bạn tự ký và cài bằng công cụ riêng. Cập nhật OTA vẫn đi qua `eas-update.yml`.
+`eas-build.yml` chỉ tạo IPA chưa ký; bạn tự ký và cài bằng công cụ riêng. Cập nhật OTA vẫn đi qua `eas-update.yml`.
