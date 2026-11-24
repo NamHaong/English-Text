@@ -1,0 +1,43 @@
+name: EAS Build
+
+# Kích hoạt EAS Build trực tiếp từ GitHub Actions
+# Chạy thủ công: Actions > EAS Build > Run workflow (chọn platform & profile)
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Nền tảng build (ios, android, all)'
+        type: choice
+        options: [ios, android, all]
+        default: ios
+      profile:
+        description: 'Profile build (từ eas.json)'
+        type: choice
+        options: [preview, preview-simulator, production, development]
+        default: preview
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eas-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint src
+      - name: Trigger EAS Build
+        run: eas build --platform ${{ github.event.inputs.platform }} --profile ${{ github.event.inputs.profile }} --non-interactive

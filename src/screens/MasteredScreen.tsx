@@ -107,11 +107,19 @@ export const MasteredScreen: React.FC<MasteredScreenProps> = ({
       triggerHaptic('success');
       onRecordTest(true);
       setScore((prev) => ({ correct: prev.correct + 1, total: prev.total + 1 }));
+      speakWord(currentTestWord.word);
     } else {
       triggerHaptic('error');
       onRecordTest(false);
       setScore((prev) => ({ correct: prev.correct, total: prev.total + 1 }));
     }
+  };
+
+  const retryCurrentWord = () => {
+    triggerHaptic('light');
+    setUserAnswer('');
+    setIsAnswerChecked(false);
+    setIsCorrect(false);
   };
 
   const nextTestWord = () => {
@@ -306,8 +314,9 @@ export const MasteredScreen: React.FC<MasteredScreenProps> = ({
                         <Text style={styles.checkBtnText}>Kiểm tra kết quả</Text>
                       </TouchableOpacity>
                     ) : (
-                      /* RESULT FEEDBACK */
+                      /* RESULT NOTIFICATION & FEEDBACK */
                       <View style={styles.resultBox}>
+                        {/* Header Notification Banner */}
                         <View
                           style={[
                             styles.resultHeader,
@@ -316,37 +325,107 @@ export const MasteredScreen: React.FC<MasteredScreenProps> = ({
                         >
                           <Ionicons
                             name={isCorrect ? 'checkmark-circle' : 'close-circle'}
-                            size={24}
+                            size={28}
                             color={isCorrect ? '#10B981' : '#EF4444'}
                           />
-                          <Text
-                            style={[
-                              styles.resultTitle,
-                              { color: isCorrect ? '#065F46' : '#991B1B' },
-                            ]}
+                          <View style={styles.resultHeaderTexts}>
+                            <Text
+                              style={[
+                                styles.resultTitle,
+                                { color: isCorrect ? '#065F46' : '#991B1B' },
+                              ]}
+                            >
+                              {isCorrect
+                                ? 'CHÍNH XÁC XUẤT SẮC! 🎉'
+                                : 'CHƯA CHÍNH XÁC RỒI! 💪'}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.resultSubTitle,
+                                { color: isCorrect ? '#047857' : '#B91C1C' },
+                              ]}
+                            >
+                              {isCorrect
+                                ? 'Bạn đã ghi nhớ rất chuẩn nghĩa của từ này.'
+                                : 'Đừng nản lòng! Hãy xem đáp án chuẩn và thử lại nhé.'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Comparison Box */}
+                        <View style={styles.comparisonBox}>
+                          <View style={styles.comparisonRow}>
+                            <Text style={styles.comparisonLabel}>
+                              {isCorrect ? '✅ Bạn đã trả lời:' : '❌ Bạn đã nhập:'}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.comparisonUserText,
+                                isCorrect
+                                  ? styles.comparisonUserCorrect
+                                  : styles.comparisonUserWrong,
+                              ]}
+                            >
+                              {`"${userAnswer.trim()}"`}
+                            </Text>
+                          </View>
+
+                          <View style={styles.comparisonDivider} />
+
+                          <View style={styles.comparisonRow}>
+                            <Text style={styles.comparisonLabel}>📖 Đáp án chuẩn:</Text>
+                            <Text style={styles.comparisonTargetText}>
+                              {currentTestWord.meaning}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Example context sentence */}
+                        {currentTestWord.example ? (
+                          <View style={styles.resultExampleBox}>
+                            <View style={styles.resultExampleHeader}>
+                              <Ionicons name="bulb-outline" size={14} color="#64748B" />
+                              <Text style={styles.resultExampleLabel}>Ngữ cảnh sử dụng:</Text>
+                            </View>
+                            <Text style={styles.resultExampleEn}>
+                              {`"${currentTestWord.example}"`}
+                            </Text>
+                            {currentTestWord.exampleVi ? (
+                              <Text style={styles.resultExampleVi}>
+                                👉 {currentTestWord.exampleVi}
+                              </Text>
+                            ) : null}
+                          </View>
+                        ) : null}
+
+                        {/* Action buttons */}
+                        {isCorrect ? (
+                          <TouchableOpacity
+                            style={styles.nextWordBtn}
+                            onPress={nextTestWord}
                           >
-                            {isCorrect
-                              ? 'Chính xác! Bạn nhớ rất tốt 🎉'
-                              : 'Chưa chính xác!'}
-                          </Text>
-                        </View>
+                            <Text style={styles.nextWordBtnText}>
+                              Kiểm tra từ tiếp theo ➔
+                            </Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={styles.resultBtnRow}>
+                            <TouchableOpacity
+                              style={styles.retryBtn}
+                              onPress={retryCurrentWord}
+                            >
+                              <Ionicons name="refresh" size={18} color="#FFFFFF" />
+                              <Text style={styles.retryBtnText}>Thử lại ngay</Text>
+                            </TouchableOpacity>
 
-                        {/* Accurate Meaning Display */}
-                        <View style={styles.targetMeaningBox}>
-                          <Text style={styles.targetMeaningLabel}>Đáp án chuẩn:</Text>
-                          <Text style={styles.targetMeaningValue}>
-                            {currentTestWord.meaning}
-                          </Text>
-                        </View>
-
-                        <TouchableOpacity
-                          style={styles.nextWordBtn}
-                          onPress={nextTestWord}
-                        >
-                          <Text style={styles.nextWordBtnText}>
-                            Kiểm tra từ tiếp theo ➔
-                          </Text>
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.skipBtn}
+                              onPress={nextTestWord}
+                            >
+                              <Text style={styles.skipBtnText}>Từ tiếp theo ➔</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
                       </View>
                     )}
 
@@ -623,7 +702,7 @@ const styles = StyleSheet.create({
   },
   resultBox: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -631,9 +710,9 @@ const styles = StyleSheet.create({
   resultHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 12,
-    gap: 8,
+    padding: 12,
+    borderRadius: 14,
+    gap: 10,
     marginBottom: 12,
   },
   resultHeaderCorrect: {
@@ -642,28 +721,123 @@ const styles = StyleSheet.create({
   resultHeaderWrong: {
     backgroundColor: '#FEE2E2',
   },
+  resultHeaderTexts: {
+    flex: 1,
+  },
   resultTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
   },
-  targetMeaningBox: {
+  resultSubTitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  comparisonBox: {
     backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 14,
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  targetMeaningLabel: {
+  comparisonRow: {
+    marginVertical: 2,
+  },
+  comparisonLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
     marginBottom: 2,
   },
-  targetMeaningValue: {
+  comparisonUserText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  comparisonUserCorrect: {
+    color: '#059669',
+  },
+  comparisonUserWrong: {
+    color: '#DC2626',
+    textDecorationLine: 'line-through',
+  },
+  comparisonDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 8,
+  },
+  comparisonTargetText: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  resultExampleBox: {
+    backgroundColor: '#F1F5F9',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3B82F6',
+  },
+  resultExampleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  resultExampleLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  resultExampleEn: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: '#1E293B',
+    marginBottom: 2,
+  },
+  resultExampleVi: {
+    fontSize: 12,
+    color: '#475569',
+  },
+  resultBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  retryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 6,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  skipBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+  },
+  skipBtnText: {
+    color: '#475569',
+    fontSize: 15,
+    fontWeight: '700',
   },
   nextWordBtn: {
     backgroundColor: '#10B981',

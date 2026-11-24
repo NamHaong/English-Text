@@ -16,9 +16,7 @@ export const UnderscoreHint: React.FC<UnderscoreHintProps> = ({
 
   // Split into words
   const words = primaryMeaning.split(/\s+/).filter(Boolean);
-  const inputLetters = userInput.trim().replace(/\s+/g, ' ');
-
-  let currentInputCharIndex = 0;
+  const userWords = userInput.trim().split(/\s+/);
 
   return (
     <View style={styles.container}>
@@ -26,12 +24,13 @@ export const UnderscoreHint: React.FC<UnderscoreHintProps> = ({
       <View style={styles.wordsRow}>
         {words.map((w, wordIndex) => {
           const chars = Array.from(w);
+          const userWord = userWords[wordIndex] || '';
+
           return (
             <View key={wordIndex} style={styles.wordGroup}>
               {chars.map((char, charIndex) => {
-                const userChar = inputLetters[currentInputCharIndex];
-                const isFilled = !!userChar && userChar !== ' ';
-                currentInputCharIndex++;
+                const userChar = userWord[charIndex];
+                const isFilled = !!userChar;
 
                 return (
                   <View key={charIndex} style={styles.slotContainer}>

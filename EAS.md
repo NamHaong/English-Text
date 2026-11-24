@@ -38,6 +38,7 @@ Trước khi push, kiểm tra: `git status` và `git diff --cached --stat`.
 | Workflow | Khi nào chạy | Làm gì |
 |---|---|---|
 | `ci.yml` | push `main`, mọi pull request | `tsc`, `eslint`, `expo-doctor` |
+| `eas-build.yml` | chạy tay (workflow_dispatch) | build ứng dụng trên đám mây EAS (chọn iOS, Android, profile) trực tiếp từ GitHub |
 | `ios-unsigned.yml` | chạy tay | build file `.ipa` **chưa ký** trên macOS của GitHub, tải ở mục Artifacts (giữ 14 ngày) |
 | `eas-update.yml` | push `main`, hoặc chạy tay | `eas update` lên channel `preview`/`production` |
 
