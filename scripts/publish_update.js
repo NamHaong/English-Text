@@ -41,9 +41,10 @@ try {
 
 // Publish directly to Expo using EAS Update
 const updateMsg = messageArg || `Bản cập nhật v${newVersion} - ${new Date().toLocaleString('vi-VN')}`;
-console.log(`📡 Đang đẩy trực tiếp lên Expo channel '${targetChannel}'...`);
+const env = targetChannel === 'production' ? 'production' : 'preview';
+console.log(`📡 Đang đẩy trực tiếp lên Expo channel '${targetChannel}' (env: ${env})...`);
 try {
-  execSync(`npx eas-cli update --channel "${targetChannel}" --message "${updateMsg}" --non-interactive`, {
+  execSync(`npx eas-cli update --channel "${targetChannel}" --environment "${env}" --message "${updateMsg}" --non-interactive`, {
     stdio: 'inherit',
   });
   console.log(`\n🎉 THÀNH CÔNG! Bản cập nhật v${newVersion} đã được đẩy lên Expo channel '${targetChannel}'.`);
