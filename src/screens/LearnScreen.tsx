@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WordItem } from '../types/vocabulary';
 import { WordCard } from '../components/WordCard';
+import { FloatingWordWidget } from '../components/FloatingWordWidget';
 import {
   updateRealDynamicIsland,
   stopRealDynamicIsland,
@@ -41,6 +42,7 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
   onUnmarkMemorized,
 }) => {
   const [islandEnabled, setIslandEnabled] = useState(true);
+  const [showFloatingWidget, setShowFloatingWidget] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
@@ -163,6 +165,24 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
               <Text style={styles.streakText}>{streakDays} ngày</Text>
             </View>
 
+            {/* Floating popup toggle */}
+            <TouchableOpacity
+              style={[
+                styles.iconCircle,
+                showFloatingWidget && { backgroundColor: '#EFF6FF', borderColor: '#2563EB' },
+              ]}
+              onPress={() => {
+                triggerHaptic('light');
+                setShowFloatingWidget(!showFloatingWidget);
+              }}
+            >
+              <Ionicons
+                name="browsers-outline"
+                size={18}
+                color={showFloatingWidget ? '#2563EB' : '#475569'}
+              />
+            </TouchableOpacity>
+
             {/* Search toggle */}
             <TouchableOpacity
               style={styles.iconCircle}
@@ -248,39 +268,49 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
             />
           </View>
           <View style={styles.levelMilestones}>
-            <Text style={[styles.milestoneText, safeIndex <= 14 && styles.milestoneActive]}>
-              A1
+            <Text
+              style={[
+                styles.milestoneText,
+                currentWord?.level === 'A1' && styles.milestoneActive,
+              ]}
+            >
+              A1 (Cơ bản)
             </Text>
             <Text style={styles.milestoneDivider}>→</Text>
             <Text
               style={[
                 styles.milestoneText,
-                safeIndex > 14 && safeIndex <= 24 && styles.milestoneActive,
+                currentWord?.level === 'A2' && styles.milestoneActive,
               ]}
             >
-              A2
+              A2 (Sơ cấp)
             </Text>
             <Text style={styles.milestoneDivider}>→</Text>
             <Text
               style={[
                 styles.milestoneText,
-                safeIndex > 24 && safeIndex <= 29 && styles.milestoneActive,
+                currentWord?.level === 'B1' && styles.milestoneActive,
               ]}
             >
-              B1
+              B1 (Trung cấp)
             </Text>
             <Text style={styles.milestoneDivider}>→</Text>
             <Text
               style={[
                 styles.milestoneText,
-                safeIndex > 29 && safeIndex <= 728 && styles.milestoneActive,
+                currentWord?.level === 'B2' && styles.milestoneActive,
               ]}
             >
-              B2
+              B2 (Khá)
             </Text>
             <Text style={styles.milestoneDivider}>→</Text>
-            <Text style={[styles.milestoneText, safeIndex > 728 && styles.milestoneActive]}>
-              C1
+            <Text
+              style={[
+                styles.milestoneText,
+                currentWord?.level === 'C1' && styles.milestoneActive,
+              ]}
+            >
+              C1 (Cao cấp)
             </Text>
           </View>
         </View>
@@ -305,6 +335,15 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
           </View>
         )}
       </ScrollView>
+      {/* Draggable Floating Word Popup (Vừa học vừa chơi) */}
+      <FloatingWordWidget
+        currentWord={currentWord}
+        isMemorized={isMemorized}
+        onToggleMemorized={handleToggleMemorize}
+        onNextWord={handleNextWord}
+        visible={showFloatingWidget}
+        onClose={() => setShowFloatingWidget(false)}
+      />
     </SafeAreaView>
   );
 };

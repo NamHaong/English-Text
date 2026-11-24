@@ -7,7 +7,6 @@ const isNonEmpty = (v: unknown): v is string => typeof v === 'string' && v.trim(
 /** Auto-generated filler left by the old build scripts; such entries must never reach the UI. */
 const isPlaceholder = (item: Partial<WordItem>): boolean =>
   (item.example ?? '').includes('is essential in advanced English') ||
-  item.ipa === `/${item.word}/` ||
   new RegExp(
     `^(từ|danh từ|động từ|tính từ|mang tính chất|thực hiện hành động|một cách) ${item.word ?? ''}$`,
     'i'

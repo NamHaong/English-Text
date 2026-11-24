@@ -11,8 +11,9 @@ export const UnderscoreHint: React.FC<UnderscoreHintProps> = ({
   userInput,
 }) => {
   // If meaning has multiple senses separated by comma or slash (e.g. "hấp thụ, tiếp thu"),
-  // get primary meaning for hint
-  const primaryMeaning = targetMeaning.split(/[,;/]/)[0].trim();
+  // get primary meaning for hint and strip parenthetical notes
+  const rawPrimary = targetMeaning.split(/[,;/]/)[0].trim();
+  const primaryMeaning = rawPrimary.replace(/\(.*?\)/g, '').replace(/[^\p{L}\s]/gu, '').trim() || rawPrimary;
 
   // Split into words
   const words = primaryMeaning.split(/\s+/).filter(Boolean);

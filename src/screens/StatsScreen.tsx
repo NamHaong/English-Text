@@ -42,6 +42,14 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({
   const levels = ['A1', 'A2', 'B1', 'B2', 'C1'] as const;
   const memorizedSet = new Set(progress.memorizedIds);
 
+  const LEVEL_DESCRIPTIONS: Record<string, string> = {
+    A1: 'A1 (Cơ bản)',
+    A2: 'A2 (Sơ cấp)',
+    B1: 'B1 (Trung cấp)',
+    B2: 'B2 (Khá)',
+    C1: 'C1 (Cao cấp)',
+  };
+
   const levelStats = levels.map((lvl) => {
     const totalInLevel = vocabulary.filter((w) => w.level === lvl).length;
     const memorizedInLevel = vocabulary.filter(
@@ -50,6 +58,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({
     const pct = totalInLevel > 0 ? Math.round((memorizedInLevel / totalInLevel) * 100) : 0;
     return {
       level: lvl,
+      name: LEVEL_DESCRIPTIONS[lvl] || lvl,
       total: totalInLevel,
       memorized: memorizedInLevel,
       percent: pct,
@@ -172,7 +181,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({
                     { backgroundColor: getLevelColor(item.level) },
                   ]}
                 >
-                  <Text style={styles.levelPillText}>{item.level}</Text>
+                  <Text style={styles.levelPillText}>{item.name}</Text>
                 </View>
                 <Text style={styles.levelCountText}>
                   {item.memorized} / {item.total} từ
@@ -416,7 +425,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    width: 130,
+    width: 170,
   },
   levelPill: {
     paddingHorizontal: 8,
