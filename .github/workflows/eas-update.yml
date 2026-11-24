@@ -1,7 +1,7 @@
 name: EAS Update
 
-# Đẩy bản cập nhật OTA (JS / dữ liệu / ảnh) cho app đã build.
-# Tự chạy khi push lên main, hoặc chạy thủ công và chọn channel.
+# Tự động tăng phiên bản và đẩy bản cập nhật OTA (JS / dữ liệu từ vựng / ảnh) lên Expo
+# Tự chạy khi push lên main, hoặc chạy thủ công qua tab Actions
 on:
   push:
     branches: [main]
@@ -11,13 +11,13 @@ on:
   workflow_dispatch:
     inputs:
       channel:
-        description: Channel (khớp profile build)
+        description: 'Channel cập nhật (preview / production)'
         type: choice
         options: [preview, production]
         default: preview
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: eas-update-${{ github.ref }}
@@ -28,19 +28,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx eslint src
-      - name: Publish update
+
+      - name: Configure Git for Auto Version Bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump Version & Publish to Expo
         env:
           CHANNEL: ${{ github.event.inputs.channel || 'preview' }}
-          COMMIT_MSG: ${{ github.event.head_commit.message || 'Manual update' }}
-        run: eas update --channel "$CHANNEL" --message "$COMMIT_MSG" --non-interactive
+          COMMIT_MSG: ${{ github.event.head_commit.message || 'Auto update' }}
+        run: |
+          node scripts/publish_update.js "$CHANNEL" "$COMMIT_MSG"
+          git push origin main || echo "Bỏ qua git push nếu không có quyền ghi commit."

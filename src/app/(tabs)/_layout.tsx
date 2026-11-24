@@ -48,7 +48,22 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Tab 2: Đã thuộc */}
+      {/* Tab 2: Danh sách */}
+      <Tabs.Screen
+        name="list"
+        options={{
+          title: 'Danh Sách',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'book' : 'book-outline'}
+              size={22}
+              color={focused ? '#0284C7' : (color as string) || '#94A3B8'}
+            />
+          ),
+        }}
+      />
+
+      {/* Tab 3: Đã thuộc */}
       <Tabs.Screen
         name="mastered"
         options={{
@@ -75,7 +90,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Tab 3: Thống kê */}
+      {/* Tab 4: Thống kê */}
       <Tabs.Screen
         name="stats"
         options={{

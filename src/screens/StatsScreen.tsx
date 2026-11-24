@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WordItem, UserProgress } from '../types/vocabulary';
 import { triggerHaptic } from '../services/haptics';
+import { getAppVersionInfo, checkUpdatesManual } from '../services/updates';
 
 interface StatsScreenProps {
   vocabulary: WordItem[];
@@ -24,6 +26,9 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({
   progress,
   onResetProgress,
 }) => {
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const versionInfo = getAppVersionInfo();
+
   const totalWords = vocabulary.length;
   const memorizedCount = progress.memorizedIds.length;
   const percentMemorized = totalWords > 0 ? ((memorizedCount / totalWords) * 100).toFixed(1) : '0';
@@ -72,6 +77,16 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({
         { text: 'Đặt lại', style: 'destructive', onPress: onResetProgress },
       ]
     );
+  };
+
+  const handleCheckUpdate = async () => {
+    triggerHaptic('light');
+    setCheckingUpdate(true);
+    try {
+      await checkUpdatesManual();
+    } finally {
+      setCheckingUpdate(false);
+    }
   };
 
   return (
@@ -182,14 +197,49 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({
           ))}
         </View>
 
+        {/* OTA Update Card */}
+        <View style={styles.updateCard}>
+          <View style={styles.updateCardTop}>
+            <View style={styles.updateIconBox}>
+              <Ionicons name="cloud-download-outline" size={24} color="#0284C7" />
+            </View>
+            <View style={styles.updateInfoBox}>
+              <Text style={styles.updateTitle}>Cập Nhật Trực Tuyến (OTA)</Text>
+              <Text style={styles.updateSubtitle}>
+                Phiên bản: v{versionInfo.version} • Kênh: {versionInfo.channel}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.updateDesc}>
+            Mỗi khi cập nhật, mã nguồn mới sẽ được đẩy trực tiếp lên đám mây Expo và nâng số phiên bản. Ứng dụng tự động tải bản mới nhất khi khởi động!
+          </Text>
+
+          <TouchableOpacity
+            style={styles.checkUpdateBtn}
+            onPress={handleCheckUpdate}
+            disabled={checkingUpdate}
+            activeOpacity={0.8}
+          >
+            {checkingUpdate ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="sync-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.checkUpdateBtnText}>Kiểm tra bản cập nhật mới</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
         {/* Feature Explanations */}
         <View style={styles.featureInfoCard}>
           <View style={styles.featureItem}>
-            <Ionicons name="phone-portrait-outline" size={22} color="#4F46E5" />
+            <Ionicons name="hardware-chip-outline" size={22} color="#4F46E5" />
             <View style={styles.featureTextWrap}>
               <Text style={styles.featureTitle}>Dynamic Island & Live Activities</Text>
               <Text style={styles.featureDesc}>
-                Tự động hiển thị từ tiếng Anh và bản dịch ở Dynamic Island phía trên cùng điện thoại để bạn ghi nhớ từ vựng liên tục mà không lo bị quên.
+                Hiển thị trực tiếp trên phần khuyết Dynamic Island của camera iPhone thật để bạn học thuộc từ vựng mọi lúc mọi nơi ngay cả khi đang dùng ứng dụng khác.
               </Text>
             </View>
           </View>
@@ -201,7 +251,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({
             <View style={styles.featureTextWrap}>
               <Text style={styles.featureTitle}>Chế Độ Ôn Lại Với Gợi Ý Gạch Dưới</Text>
               <Text style={styles.featureDesc}>
-                Các từ đã thuộc sẽ được kiểm tra lại bằng cách ẩn nghĩa tiếng Việt và hiển thị số lượng ký tự bằng dấu gạch dưới, kích thích tư duy người học.
+                Kiểm tra lại từ đã thuộc bằng cách gõ nghĩa tiếng Việt với số lượng chữ cái tương ứng dấu gạch dưới, hỗ trợ gõ tiếng Việt có dấu mượt mà.
               </Text>
             </View>
           </View>
@@ -406,6 +456,64 @@ const styles = StyleSheet.create({
     color: '#64748B',
     width: 36,
     textAlign: 'right',
+  },
+  updateCard: {
+    backgroundColor: '#F0F9FF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  updateCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
+  },
+  updateIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  updateInfoBox: {
+    flex: 1,
+  },
+  updateTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0369A1',
+  },
+  updateSubtitle: {
+    fontSize: 12,
+    color: '#0284C7',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  updateDesc: {
+    fontSize: 12,
+    color: '#0369A1',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  checkUpdateBtn: {
+    backgroundColor: '#0284C7',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  checkUpdateBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   featureInfoCard: {
     backgroundColor: '#FFFFFF',

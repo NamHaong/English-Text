@@ -6,14 +6,19 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Switch,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { WordItem, CEFRLevel } from '../types/vocabulary';
-import { DynamicIslandSimulator } from '../components/DynamicIslandSimulator';
+import { WordItem } from '../types/vocabulary';
 import { WordCard } from '../components/WordCard';
-import { LevelFilter } from '../components/LevelFilter';
-import { updateLiveActivityWord } from '../services/liveActivity';
+import {
+  updateRealDynamicIsland,
+  stopRealDynamicIsland,
+  getDynamicIslandSetting,
+  setDynamicIslandSetting,
+} from '../services/liveActivity';
 import { triggerHaptic } from '../services/haptics';
 
 interface LearnScreenProps {
@@ -35,52 +40,70 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
   onMarkMemorized,
   onUnmarkMemorized,
 }) => {
-  const [selectedLevel, setSelectedLevel] = useState<CEFRLevel | 'ALL'>('ALL');
+  const [islandEnabled, setIslandEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
-  // Filtered vocabulary list based on level and search
-  const filteredWords = useMemo(() => {
-    return vocabulary.filter((item) => {
-      const matchLevel =
-        selectedLevel === 'ALL' || item.level === selectedLevel;
-      const matchSearch =
-        !searchQuery.trim() ||
-        item.word.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        item.meaning.toLowerCase().includes(searchQuery.toLowerCase().trim());
-      return matchLevel && matchSearch;
+  // Initialize Dynamic Island setting from storage
+  useEffect(() => {
+    let isMounted = true;
+    getDynamicIslandSetting().then((val) => {
+      if (isMounted) setIslandEnabled(val);
     });
-  }, [vocabulary, selectedLevel, searchQuery]);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  // Level counts
-  const levelCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: vocabulary.length };
-    vocabulary.forEach((w) => {
-      counts[w.level] = (counts[w.level] || 0) + 1;
-    });
-    return counts;
-  }, [vocabulary]);
+  // Filtered words for instant search lookup (if searching)
+  const displayWords = useMemo(() => {
+    if (!searchQuery.trim()) return vocabulary;
+    const q = searchQuery.toLowerCase().trim();
+    return vocabulary.filter(
+      (w) => w.word.toLowerCase().includes(q) || w.meaning.toLowerCase().includes(q)
+    );
+  }, [vocabulary, searchQuery]);
 
-  // Safe index within filtered words
+  // Safe index within display words
   const safeIndex = useMemo(() => {
-    if (filteredWords.length === 0) return 0;
-    if (currentIndex >= filteredWords.length) return 0;
+    if (displayWords.length === 0) return 0;
+    if (currentIndex >= displayWords.length) return 0;
     return currentIndex;
-  }, [currentIndex, filteredWords.length]);
+  }, [currentIndex, displayWords.length]);
 
-  const currentWord = filteredWords[safeIndex] || null;
+  const currentWord = displayWords[safeIndex] || null;
   const isMemorized = currentWord ? memorizedIds.includes(currentWord.id) : false;
 
-  // Whenever current word changes, update Live Activity
+  // Sync with real iOS Dynamic Island whenever current word changes or island state changes
   useEffect(() => {
-    if (currentWord) {
-      updateLiveActivityWord(currentWord, memorizedIds.length);
+    if (currentWord && islandEnabled) {
+      updateRealDynamicIsland(
+        currentWord,
+        safeIndex + 1,
+        memorizedIds.length,
+        isMemorized
+      );
     }
-    // Only re-notify when the word changes, not when the memorized count changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentWord?.id]);
+  }, [currentWord, islandEnabled, safeIndex, memorizedIds.length, isMemorized]);
 
-  // Pending auto-advance after ticking a word; cleared on unmount / manual navigation
+  // Toggle Dynamic Island setting
+  const handleToggleIsland = async (val: boolean) => {
+    triggerHaptic('light');
+    setIslandEnabled(val);
+    await setDynamicIslandSetting(val);
+    if (!val) {
+      await stopRealDynamicIsland();
+    } else if (currentWord) {
+      await updateRealDynamicIsland(
+        currentWord,
+        safeIndex + 1,
+        memorizedIds.length,
+        isMemorized
+      );
+    }
+  };
+
+  // Pending auto-advance timer after ticking
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
@@ -88,7 +111,7 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
 
   const handleNextWord = () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    if (safeIndex < filteredWords.length - 1) {
+    if (safeIndex < displayWords.length - 1) {
       onUpdateIndex(safeIndex + 1);
     } else {
       onUpdateIndex(0); // loop back
@@ -102,12 +125,11 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
     }
   };
 
-  // When user ticks: mark memorized & immediately advance to next word!
+  // When user ticks: mark memorized & auto advance down to next word
   const handleToggleMemorize = () => {
     if (!currentWord) return;
     if (!isMemorized) {
       onMarkMemorized(currentWord.id);
-      // Auto move down to next word
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
       advanceTimer.current = setTimeout(handleNextWord, 350);
     } else {
@@ -115,27 +137,23 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
     }
   };
 
+  // Calculate difficulty progress percentage
+  const difficultyProgress = useMemo(() => {
+    if (vocabulary.length === 0) return 0;
+    return Math.min(100, Math.round(((safeIndex + 1) / vocabulary.length) * 100));
+  }, [safeIndex, vocabulary.length]);
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Dynamic Island Header Simulator */}
-      <DynamicIslandSimulator
-        currentWord={currentWord}
-        totalMemorized={memorizedIds.length}
-        onMemorizeCurrent={handleToggleMemorize}
-        onNextWord={handleNextWord}
-      />
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* App Top Brand Bar */}
+        {/* App Top Bar */}
         <View style={styles.topBar}>
           <View>
             <Text style={styles.appTitle}>Eng Text</Text>
-            <Text style={styles.appSubtitle}>
-              Oxford 5000 • Học từ vựng thông minh
-            </Text>
+            <Text style={styles.appSubtitle}>Học 5000 từ theo thứ tự độ khó</Text>
           </View>
 
           <View style={styles.topRightIcons}>
@@ -162,18 +180,44 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
           </View>
         </View>
 
+        {/* Real Dynamic Island Header Banner on iPhone */}
+        <View style={styles.islandHeaderBar}>
+          <View style={styles.islandLeft}>
+            <View style={styles.islandIconContainer}>
+              <Ionicons name="hardware-chip-outline" size={20} color="#0284C7" />
+            </View>
+            <View style={styles.islandTextContainer}>
+              <Text style={styles.islandTitle}>Dynamic Island iPhone</Text>
+              <Text style={styles.islandSubtitle}>
+                {Platform.OS === 'ios'
+                  ? islandEnabled
+                    ? 'Đang ghim trực tiếp trên camera iPhone'
+                    : 'Đã tạm tắt Live Activity'
+                  : 'Hỗ trợ hiển thị trên iPhone 14 Pro trở lên'}
+              </Text>
+            </View>
+          </View>
+
+          <Switch
+            value={islandEnabled}
+            onValueChange={handleToggleIsland}
+            trackColor={{ false: '#CBD5E1', true: '#38BDF8' }}
+            thumbColor={islandEnabled ? '#0284C7' : '#F1F5F9'}
+          />
+        </View>
+
         {/* Search Bar if expanded */}
         {showSearch ? (
           <View style={styles.searchBox}>
             <Ionicons name="search" size={18} color="#94A3B8" />
             <TextInput
               style={styles.searchInput}
-              placeholder="Tìm kiếm từ vựng hoặc nghĩa tiếng Việt..."
+              placeholder="Tìm từ tiếng Anh hoặc nghĩa tiếng Việt..."
               placeholderTextColor="#94A3B8"
               value={searchQuery}
               onChangeText={(text) => {
                 setSearchQuery(text);
-                onUpdateIndex(0); // result list changes, so restart from the first match
+                onUpdateIndex(0);
               }}
               clearButtonMode="while-editing"
             />
@@ -190,15 +234,56 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
           </View>
         ) : null}
 
-        {/* CEFR Level filter chips */}
-        <LevelFilter
-          selectedLevel={selectedLevel}
-          onSelectLevel={(level) => {
-            setSelectedLevel(level);
-            onUpdateIndex(0);
-          }}
-          counts={levelCounts}
-        />
+        {/* Difficulty Ladder Bar (A1 -> A2 -> B1 -> B2 -> C1) */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressLabel}>
+              Thứ tự độ khó: #{safeIndex + 1} / {vocabulary.length}
+            </Text>
+            <Text style={styles.progressPercent}>{difficultyProgress}%</Text>
+          </View>
+          <View style={styles.progressBarBg}>
+            <View
+              style={[styles.progressBarFill, { width: `${difficultyProgress}%` }]}
+            />
+          </View>
+          <View style={styles.levelMilestones}>
+            <Text style={[styles.milestoneText, safeIndex <= 14 && styles.milestoneActive]}>
+              A1
+            </Text>
+            <Text style={styles.milestoneDivider}>→</Text>
+            <Text
+              style={[
+                styles.milestoneText,
+                safeIndex > 14 && safeIndex <= 24 && styles.milestoneActive,
+              ]}
+            >
+              A2
+            </Text>
+            <Text style={styles.milestoneDivider}>→</Text>
+            <Text
+              style={[
+                styles.milestoneText,
+                safeIndex > 24 && safeIndex <= 29 && styles.milestoneActive,
+              ]}
+            >
+              B1
+            </Text>
+            <Text style={styles.milestoneDivider}>→</Text>
+            <Text
+              style={[
+                styles.milestoneText,
+                safeIndex > 29 && safeIndex <= 728 && styles.milestoneActive,
+              ]}
+            >
+              B2
+            </Text>
+            <Text style={styles.milestoneDivider}>→</Text>
+            <Text style={[styles.milestoneText, safeIndex > 728 && styles.milestoneActive]}>
+              C1
+            </Text>
+          </View>
+        </View>
 
         {/* Main Word Card */}
         {currentWord ? (
@@ -209,29 +294,16 @@ export const LearnScreen: React.FC<LearnScreenProps> = ({
             onNext={handleNextWord}
             onPrev={handlePrevWord}
             hasPrev={safeIndex > 0}
-            hasNext={safeIndex < filteredWords.length - 1}
+            hasNext={safeIndex < displayWords.length - 1}
             currentIndex={safeIndex}
-            totalCount={filteredWords.length}
+            totalCount={displayWords.length}
           />
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons name="search-outline" size={48} color="#94A3B8" />
-            <Text style={styles.emptyText}>Không tìm thấy từ vựng phù hợp</Text>
+            <Text style={styles.emptyText}>Không tìm thấy từ vựng</Text>
           </View>
         )}
-
-        {/* Live Island Tip Banner */}
-        <View style={styles.islandTipCard}>
-          <View style={styles.tipIconWrap}>
-            <Ionicons name="notifications-outline" size={22} color="#0284C7" />
-          </View>
-          <View style={styles.tipTextWrap}>
-            <Text style={styles.tipTitle}>Dynamic Island & Khóa Màn Hình</Text>
-            <Text style={styles.tipDesc}>
-              Khi thoát ra màn hình chính, từ vựng sẽ tự động ghim trên Dynamic Island và thông báo để bạn học thuộc mọi lúc mọi nơi!
-            </Text>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -251,7 +323,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     marginTop: 6,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   appTitle: {
     fontSize: 22,
@@ -263,6 +335,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     fontWeight: '600',
+    marginTop: 1,
   },
   topRightIcons: {
     flexDirection: 'row',
@@ -295,6 +368,46 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  islandHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0F9FF',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  islandLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  islandIconContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  islandTextContainer: {
+    flex: 1,
+  },
+  islandTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0369A1',
+  },
+  islandSubtitle: {
+    fontSize: 11,
+    color: '#0284C7',
+    marginTop: 1,
+  },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -313,6 +426,63 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0F172A',
   },
+  progressContainer: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  progressLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  progressPercent: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#2563EB',
+    borderRadius: 3,
+  },
+  levelMilestones: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  milestoneText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  milestoneActive: {
+    color: '#2563EB',
+    fontWeight: '900',
+  },
+  milestoneDivider: {
+    fontSize: 11,
+    color: '#CBD5E1',
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -323,39 +493,5 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '600',
     marginTop: 10,
-  },
-  islandTipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E0F2FE',
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-    gap: 12,
-  },
-  tipIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tipTextWrap: {
-    flex: 1,
-  },
-  tipTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0369A1',
-    marginBottom: 2,
-  },
-  tipDesc: {
-    fontSize: 12,
-    color: '#0284C7',
-    lineHeight: 17,
   },
 });

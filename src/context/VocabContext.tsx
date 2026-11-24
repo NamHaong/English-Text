@@ -9,7 +9,6 @@ import {
   recordTestResult,
   createDefaultProgress,
 } from '../services/storage';
-import { requestNotificationPermissions } from '../services/liveActivity';
 
 import { loadVocabulary } from '../data/loadVocabulary';
 
@@ -22,6 +21,7 @@ interface VocabContextType {
   updateIndex: (index: number) => Promise<void>;
   markMemorized: (id: string) => Promise<void>;
   unmarkMemorized: (id: string) => Promise<void>;
+  toggleMemorized: (id: string) => Promise<void>;
   recordTest: (isCorrect: boolean) => Promise<void>;
   resetProgress: () => Promise<void>;
 }
@@ -36,7 +36,6 @@ export const VocabProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const init = async () => {
       try {
-        await requestNotificationPermissions();
         const saved = await getStoredProgress();
         setProgress(saved);
       } catch (err) {
@@ -63,6 +62,19 @@ export const VocabProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProgress({ ...updated });
   }, []);
 
+  const toggleMemorized = useCallback(
+    async (id: string) => {
+      if (progress.memorizedIds.includes(id)) {
+        const updated = await unmarkWordMemorized(id);
+        setProgress({ ...updated });
+      } else {
+        const updated = await markWordMemorized(id);
+        setProgress({ ...updated });
+      }
+    },
+    [progress.memorizedIds]
+  );
+
   const recordTest = useCallback(async (isCorrect: boolean) => {
     const updated = await recordTestResult(isCorrect);
     setProgress({ ...updated });
@@ -82,10 +94,21 @@ export const VocabProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updateIndex,
       markMemorized,
       unmarkMemorized,
+      toggleMemorized,
       recordTest,
       resetProgress,
     }),
-    [vocabulary, progress, isLoading, updateIndex, markMemorized, unmarkMemorized, recordTest, resetProgress]
+    [
+      vocabulary,
+      progress,
+      isLoading,
+      updateIndex,
+      markMemorized,
+      unmarkMemorized,
+      toggleMemorized,
+      recordTest,
+      resetProgress,
+    ]
   );
 
   return <VocabContext.Provider value={value}>{children}</VocabContext.Provider>;
