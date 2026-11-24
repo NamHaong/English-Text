@@ -40,9 +40,24 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :EXUpdatesRequestHeaders:expo-channel-name preview" "$PLIST" || true
           cat "$PLIST"
 
+      - name: Pre-download React Native artifacts with retry
+        run: |
+          CACHE_DIR="$HOME/Library/Caches/ReactNative"
+          mkdir -p "$CACHE_DIR"
+          DEBUG_URL="https://repo.reactnative.dev/maven2/com/facebook/react/react-native-artifacts/0.88.1/react-native-artifacts-0.88.1-reactnative-dependencies-debug.tar.gz"
+          RELEASE_URL="https://repo.reactnative.dev/maven2/com/facebook/react/react-native-artifacts/0.88.1/react-native-artifacts-0.88.1-reactnative-dependencies-release.tar.gz"
+          echo "Pre-downloading React Native 0.88.1 dependencies with curl retry..."
+          curl -A "react-native-0.88.1" --retry 10 --retry-delay 3 --retry-connrefused -C - -Lo "$CACHE_DIR/reactnative-dependencies-0.88.1-debug.tar.gz" "$DEBUG_URL" || true
+          curl -A "react-native-0.88.1" --retry 10 --retry-delay 3 --retry-connrefused -C - -Lo "$CACHE_DIR/reactnative-dependencies-0.88.1-release.tar.gz" "$RELEASE_URL" || true
+          ls -lh "$CACHE_DIR"
+
       - name: Install CocoaPods
         working-directory: ios
-        run: pod install
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "Attempt $i: running pod install..."
+            pod install && break || { echo "Attempt $i failed, retrying in 5 seconds..."; sleep 5; }
+          done
 
       - name: Build (no code signing)
         working-directory: ios
